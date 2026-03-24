@@ -53,7 +53,7 @@ async def scrape_website(url):
 # For 16GB RAM, 10 simultaneous browsers/tabs is a safe "Turbo" limit
 SEMAPHORE = asyncio.Semaphore(10)
 
-async def process_query(p, browser, query, proxy):
+async def process_query(p, browser, query, proxy, is_buyer=False):
     async with SEMAPHORE:
         user_agents = [
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
@@ -106,7 +106,10 @@ async def process_query(p, browser, query, proxy):
 
             # Classification
             for item in results:
-                if item['Website'] != "N/A" and item['Tem_Pixel_Meta'] == "Não":
+                item['Is_Buyer'] = "Sim" if is_buyer else "Não"
+                if is_buyer:
+                    item['Status'] = 'Comprador Potencial (Agência)'
+                elif item['Website'] != "N/A" and item['Tem_Pixel_Meta'] == "Não":
                     item['Status'] = 'Oportunidade de Implementação'
                 elif item['Tem_Pixel_Meta'] == "Sim":
                     item['Status'] = 'Lead de Alta Performance'
@@ -158,18 +161,23 @@ async def main():
         "Concessionárias de Veículos",
         "Escolas Particulares"
     ]
-    niches = [f"{n} {c}" for c in cities for n in niche_base]
+    niche_queries = [f"{n} {c}" for c in cities for n in niche_base]
 
     # Buyer Locator (Marketing Agencies in Londrina)
-    buyers = ["Agência de Marketing Londrina", "Gestor de Tráfego Londrina"]
-
-    search_queries = niches + buyers
+    buyer_queries = ["Agência de Marketing Londrina", "Gestor de Tráfego Londrina"]
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, proxy=proxy)
 
-        print(f"Starting 'Turbo' mining for {len(search_queries)} queries...")
-        all_results_lists = await asyncio.gather(*[process_query(p, browser, q, proxy) for q in search_queries])
+        # Combined Tasks
+        all_tasks = []
+        for q in niche_queries:
+            all_tasks.append(process_query(p, browser, q, proxy, is_buyer=False))
+        for q in buyer_queries:
+            all_tasks.append(process_query(p, browser, q, proxy, is_buyer=True))
+
+        print(f"Starting 'Turbo' mining for {len(all_tasks)} queries...")
+        all_results_lists = await asyncio.gather(*all_tasks)
 
         # Consolidate Results
         all_results = [item for sublist in all_results_lists for item in sublist]
@@ -203,9 +211,14 @@ async def main():
             hot_leads = df[(df['Rating'] < 4.0) | (df['Status'] == 'Oportunidade de Implementação')]
             competitors = df.sort_values(by='Rating', ascending=False).head(5)
 
+            # Separating Buyers for the Dispatcher
+            buyers_df = df[df['Is_Buyer'] == "Sim"]
+            leads_df = df[df['Is_Buyer'] == "Não"]
+
             with pd.ExcelWriter(filename) as writer:
                 hot_leads.to_excel(writer, sheet_name='Hot Leads', index=False)
-                df.to_excel(writer, sheet_name='Lista Completa', index=False)
+                leads_df.to_excel(writer, sheet_name='Lista Completa', index=False)
+                buyers_df.to_excel(writer, sheet_name='LISTA DE COMPRADORES', index=False)
                 competitors.to_excel(writer, sheet_name='Análise de Concorrência', index=False)
 
             print(f"Master file {filename} created successfully.")
