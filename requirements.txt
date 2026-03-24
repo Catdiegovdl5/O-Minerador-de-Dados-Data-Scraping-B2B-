@@ -1,0 +1,7 @@
+playwright
+playwright-stealth
+pandas
+openpyxl
+httpx
+beautifulsoup4
+fpdf2

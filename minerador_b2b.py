@@ -6,6 +6,7 @@ from playwright_stealth import Stealth
 import httpx
 from bs4 import BeautifulSoup
 import re
+from fpdf import FPDF
 
 async def scrape_website(url):
     if not url or url == "N/A":
@@ -93,7 +94,7 @@ async def process_query(p, browser, query, proxy):
                 phone_match = re.search(r'(\(?\d{2}\)?\s?\d{4,5}-?\d{4})', text_content)
                 data['Phone'] = phone_match.group(0) if phone_match else "N/A"
                 results.append(data)
-                if len(results) >= 10: break
+                if len(results) >= 50: break # Increased limit for Londrina Invasion
 
             # Concurrent Enrichment
             async def enrich_item(item):
@@ -119,13 +120,44 @@ async def process_query(p, browser, query, proxy):
             await context.close()
             return []
 
+def generate_pdf_report(df, filename):
+    pdf = FPDF()
+    pdf.add_page()
+    # Using Helvetica as Arial is deprecated/aliased
+    pdf.set_font("Helvetica", 'B', 16)
+    pdf.cell(0, 10, text="Relatório de Oportunidades Digitais: Londrina 2026", align='C', new_x="LMARGIN", new_y="NEXT")
+
+    pdf.set_font("Helvetica", size=12)
+    pdf.ln(10)
+
+    total = len(df)
+    no_pixel = len(df[df['Tem_Pixel_Meta'] == "Não"])
+    percent_no_pixel = (no_pixel / total * 100) if total > 0 else 0
+
+    pdf.cell(0, 10, text=f"Total de Leads Auditados: {total}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 10, text=f"Empresas SEM Meta Pixel: {no_pixel} ({percent_no_pixel:.1f}%)", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(10)
+    pdf.set_font("Helvetica", 'B', 14)
+    pdf.cell(0, 10, text="Análise Estratégica:", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", size=12)
+    pdf.multi_cell(0, 10, text=f"{percent_no_pixel:.1f}% das empresas de elite em Londrina estão investindo em tráfego sem o Meta Pixel instalado, resultando em perda massiva de dados e dinheiro. Esta é uma oportunidade imediata para agências de tráfego pago.")
+
+    pdf.output(filename)
+
 async def main():
     # Proxy Setup (Placeholder)
     # proxy = {"server": "http://your-proxy-address:port", "username": "user", "password": "pass"}
     proxy = None
 
-    cities = ["Assaí", "Londrina"] # Expand this list as needed
-    search_queries = [f"Imobiliárias em {city}" for city in cities]
+    # Londrina Invasion Niches
+    niches = [
+        "Imobiliárias de Alto Padrão Londrina",
+        "Clínicas de Estética Londrina",
+        "Odontologia Premium Londrina",
+        "Concessionárias Londrina",
+        "Escolas Particulares Londrina"
+    ]
+    search_queries = niches
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, proxy=proxy)
@@ -171,6 +203,11 @@ async def main():
                 competitors.to_excel(writer, sheet_name='Análise de Concorrência', index=False)
 
             print(f"Master file {filename} created successfully.")
+
+            # PDF Sales Kit Generation
+            pdf_filename = "Relatorio_Oportunidades_Londrina_2026.pdf"
+            generate_pdf_report(df, pdf_filename)
+            print(f"Sales Kit PDF {pdf_filename} created successfully.")
 
         await browser.close()
 
