@@ -9,12 +9,20 @@ import re
 
 async def scrape_website(url):
     if not url or url == "N/A":
-        return {"Email": "N/A", "Instagram": "N/A", "LinkedIn": "N/A"}
+        return {
+            "Email": "N/A", "Instagram": "N/A", "LinkedIn": "N/A",
+            "Tem_Pixel_Meta": "Não", "Tem_Google_Ads": "Não"
+        }
     try:
         async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
             response = await client.get(url)
-            soup = BeautifulSoup(response.text, 'html.parser')
+            html_content = response.text
+            soup = BeautifulSoup(html_content, 'html.parser')
             text = soup.get_text()
+
+            # Tracking Pixels Audit
+            tem_meta = "Sim" if any(x in html_content for x in ['fbevents.js', 'connect.facebook.net']) else "Não"
+            tem_google = "Sim" if any(x in html_content for x in ['googletagmanager.com', 'gtag']) else "Não"
 
             # Find Email
             email_match = re.search(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', text)
@@ -30,9 +38,15 @@ async def scrape_website(url):
                 elif 'linkedin.com' in href:
                     linkedin = href
 
-            return {"Email": email, "Instagram": instagram, "LinkedIn": linkedin}
+            return {
+                "Email": email, "Instagram": instagram, "LinkedIn": linkedin,
+                "Tem_Pixel_Meta": tem_meta, "Tem_Google_Ads": tem_google
+            }
     except Exception:
-        return {"Email": "N/A", "Instagram": "N/A", "LinkedIn": "N/A"}
+        return {
+            "Email": "N/A", "Instagram": "N/A", "LinkedIn": "N/A",
+            "Tem_Pixel_Meta": "Não", "Tem_Google_Ads": "Não"
+        }
 
 async def main():
     # User-Agent Switcher
@@ -113,6 +127,15 @@ async def main():
         results = await asyncio.gather(*[enrich_item(item) for item in results])
         print(f"Enriched all {len(results)} results.")
 
+        # Classification Logic
+        for item in results:
+            if item['Website'] != "N/A" and item['Tem_Pixel_Meta'] == "Não":
+                item['Status'] = 'Oportunidade de Implementação'
+            elif item['Tem_Pixel_Meta'] == "Sim":
+                item['Status'] = 'Lead de Alta Performance'
+            else:
+                item['Status'] = 'Lead Frio'
+
         # Sanitization
         print("Sanitizing data...")
         df = pd.DataFrame(results)
@@ -143,9 +166,8 @@ async def main():
         print("Exporting to Excel...")
         filename = "Mineracao_B2B_Assai.xlsx"
 
-        # Hot Leads: Rating low or N/A website?
-        # For this demo, let's say rating < 4.0 or no website
-        hot_leads = df[(df['Rating'] < 4.0) | (df['Website'] == "N/A")]
+        # Hot Leads (v2): Rating low OR has Website but NO Pixel (Opportunity)
+        hot_leads = df[(df['Rating'] < 4.0) | (df['Status'] == 'Oportunidade de Implementação')]
 
         # Analysis: Top 3 (Rating)
         competitors = df.sort_values(by='Rating', ascending=False).head(3)
