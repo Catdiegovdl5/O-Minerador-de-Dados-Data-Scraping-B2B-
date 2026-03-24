@@ -149,15 +149,21 @@ async def main():
     # proxy = {"server": "http://your-proxy-address:port", "username": "user", "password": "pass"}
     proxy = None
 
-    # Londrina Invasion Niches
-    niches = [
-        "Imobiliárias de Alto Padrão Londrina",
-        "Clínicas de Estética Londrina",
-        "Odontologia Premium Londrina",
-        "Concessionárias Londrina",
-        "Escolas Particulares Londrina"
+    # Phase 2: Inventory Expansion (Londrina + Cambé + Ibiporã)
+    cities = ["Londrina", "Cambé", "Ibiporã"]
+    niche_base = [
+        "Imobiliárias de Alto Padrão",
+        "Clínicas de Estética",
+        "Odontologia Premium",
+        "Concessionárias de Veículos",
+        "Escolas Particulares"
     ]
-    search_queries = niches
+    niches = [f"{n} {c}" for c in cities for n in niche_base]
+
+    # Buyer Locator (Marketing Agencies in Londrina)
+    buyers = ["Agência de Marketing Londrina", "Gestor de Tráfego Londrina"]
+
+    search_queries = niches + buyers
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, proxy=proxy)
