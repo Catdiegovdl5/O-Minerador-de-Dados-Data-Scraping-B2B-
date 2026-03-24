@@ -2,6 +2,7 @@ import asyncio
 import pandas as pd
 from playwright.async_api import async_playwright
 import os
+import sys
 
 async def generate_dossier(p, lead):
     """Takes a screenshot of the lead's website and generates a text dossier."""
@@ -55,7 +56,6 @@ async def main():
         return
 
     # 2. Select the 3 'Hottest' Leads (High Rating but NO Pixel)
-    # Sort by Rating descending and filter for NO Pixel
     # Filter for NO Pixel and valid URLs (not Google Ads redirect paths like /aclk)
     hot_candidates = df[
         (df['Tem_Pixel_Meta'] == "Não") &
@@ -75,19 +75,7 @@ async def main():
         for index, lead in hot_leads.iterrows():
             await generate_dossier(p, lead)
 
-    # 4. Generate Pricing Table
-    pricing = """💰 TABELA DE PREÇOS SUGERIDA: ORACLE B2B DATA MINER
-
-🥉 Pacote Bronze (30 leads auditados): R$ 147,00
-🥈 Pacote Prata (80 leads auditados): R$ 297,00
-🥇 Pacote Ouro (Inventário Completo + Atualizações mensais): R$ 597,00
-
-🚀 NOTA: Cada lead auditado inclui Telefone (WhatsApp), Diagnóstico de Pixel e Links de Redes Sociais.
-"""
-    with open("precos.txt", "w") as f:
-        f.write(pricing)
-
-    print("Pricing table 'precos.txt' created.")
+    print("Generation complete.")
 
 if __name__ == "__main__":
     asyncio.run(main())

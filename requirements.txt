@@ -5,7 +5,4 @@ openpyxl
 httpx
 beautifulsoup4
 fpdf2
-fastapi
-uvicorn
-pydantic-settings
-prisma
+streamlit
