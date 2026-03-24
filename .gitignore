@@ -1,0 +1,37 @@
+# Build artifacts
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Databases
+*.db
+*.db-journal
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Mining Outputs
+*.xlsx
+*.pdf
+PROSPECCAO_VENDAS/
+
+# Logs
+*.log
+api_output.txt
+frontend_output.txt
+output.txt
+
+# OS metadata
+.DS_Store
+Thumbs.db

@@ -4,7 +4,7 @@
 
 Olá, [NOME DO RESPONSÁVEL] da [NOME DA AGÊNCIA], tudo bem?
 
-Meu nome é Diego e sou Arquiteto de Dados B2B. Acabo de finalizar uma auditoria regional em Londrina, Cambé e Ibiporã e identifiquei um gargalo técnico massivo que pode ser a chave para sua agência escalar em 2026.
+Meu nome é [SEU NOME] e sou Arquiteto de Dados B2B. Acabo de finalizar uma auditoria regional em Londrina, Cambé e Ibiporã e identifiquei um gargalo técnico massivo que pode ser a chave para sua agência escalar em 2026.
 
 **O Fato:** 91,4% das empresas de alto padrão (Imobiliárias, Clínicas e Escolas) possuem sites ativos e tráfego, mas NÃO possuem Meta Pixel ou Google Tags instalados. Elas estão perdendo dados e dinheiro agora mesmo.
 
@@ -24,5 +24,5 @@ Aguardo seu retorno para conversarmos sobre pacotes exclusivos para sua agência
 
 Atenciosamente,
 
-**Diego**
+**[SEU NOME]**
 Oracle B2B Data Miner

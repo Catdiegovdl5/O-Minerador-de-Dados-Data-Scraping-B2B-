@@ -6,6 +6,7 @@ from playwright_stealth import Stealth
 import httpx
 from bs4 import BeautifulSoup
 import re
+import sys
 from fpdf import FPDF
 
 async def scrape_website(url):
@@ -152,19 +153,19 @@ async def main():
     # proxy = {"server": "http://your-proxy-address:port", "username": "user", "password": "pass"}
     proxy = None
 
-    # Phase 2: Inventory Expansion (Londrina + Cambé + Ibiporã)
-    cities = ["Londrina", "Cambé", "Ibiporã"]
-    niche_base = [
-        "Imobiliárias de Alto Padrão",
-        "Clínicas de Estética",
-        "Odontologia Premium",
-        "Concessionárias de Veículos",
-        "Escolas Particulares"
-    ]
-    niche_queries = [f"{n} {c}" for c in cities for n in niche_base]
-
-    # Buyer Locator (Marketing Agencies in Londrina)
-    buyer_queries = ["Agência de Marketing Londrina", "Gestor de Tráfego Londrina"]
+    # Dynamic Input from CLI
+    if len(sys.argv) > 2:
+        niche = sys.argv[1]
+        city = sys.argv[2]
+        niche_queries = [f"{niche} {city}"]
+        buyer_queries = [f"Agência de Marketing {city}"]
+        print(f"Running dynamic search: {niche} in {city}")
+    else:
+        # Default Phase 2 configuration
+        cities = ["Londrina", "Cambé", "Ibiporã"]
+        niche_base = ["Imobiliárias de Alto Padrão", "Clínicas de Estética", "Odontologia Premium", "Concessionárias de Veículos", "Escolas Particulares"]
+        niche_queries = [f"{n} {c}" for c in cities for n in niche_base]
+        buyer_queries = ["Agência de Marketing Londrina", "Gestor de Tráfego Londrina"]
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, proxy=proxy)
