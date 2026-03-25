@@ -68,6 +68,8 @@ if menu == "Minerar Novos Leads":
 
             for log_line in run_script(["minerador_b2b.py", niche, city]):
                 logs.append(log_line)
+                # Keep log buffer small to prevent memory leaks
+                if len(logs) > 100: logs.pop(0)
                 log_container.code("\n".join(logs[-15:])) # Show last 15 lines
 
             st.success("Operação finalizada com sucesso!")

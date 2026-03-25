@@ -1,8 +1,10 @@
 import asyncio
 import pandas as pd
 from playwright.async_api import async_playwright
+from playwright_stealth import Stealth
 import os
 import sys
+import random
 
 async def generate_dossier(p, lead):
     """Takes a screenshot of the lead's website and generates a text dossier."""
@@ -22,6 +24,9 @@ async def generate_dossier(p, lead):
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
         page = await context.new_page()
+        stealth_obj = Stealth()
+        await stealth_obj.apply_stealth_async(page)
+
         await page.goto(url, timeout=45000, wait_until="networkidle")
         await page.screenshot(path=f"{folder}/screenshot_site.png")
         await browser.close()
@@ -74,6 +79,7 @@ async def main():
     async with async_playwright() as p:
         for index, lead in hot_leads.iterrows():
             await generate_dossier(p, lead)
+            await asyncio.sleep(random.uniform(3, 7)) # Anti-block delay
 
     print("Generation complete.")
 

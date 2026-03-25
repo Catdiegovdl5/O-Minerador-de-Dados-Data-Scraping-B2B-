@@ -7,7 +7,28 @@ import httpx
 from bs4 import BeautifulSoup
 import re
 import sys
+import sqlite3
+import time
 from fpdf import FPDF
+
+# DB Initialization
+def init_db():
+    conn = sqlite3.connect('leads.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS leads
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  name TEXT,
+                  phone TEXT,
+                  website TEXT,
+                  rating REAL,
+                  tem_pixel_meta TEXT,
+                  status TEXT,
+                  is_buyer TEXT,
+                  UNIQUE(name, phone))''')
+    conn.commit()
+    conn.close()
+
+init_db()
 
 async def scrape_website(url):
     if not url or url == "N/A":
@@ -188,6 +209,21 @@ async def main():
         # Sanitization and Export
         if all_results:
             df = pd.DataFrame(all_results)
+
+            # DB Persistence
+            conn = sqlite3.connect('leads.db')
+            new_leads_count = 0
+            for index, row in df.iterrows():
+                try:
+                    conn.execute("INSERT INTO leads (name, phone, website, rating, tem_pixel_meta, status, is_buyer) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                 (row['Name'], row['Phone'], row['Website'], row['Rating'], row['Tem_Pixel_Meta'], row['Status'], row['Is_Buyer']))
+                    new_leads_count += 1
+                except sqlite3.IntegrityError:
+                    continue # Duplicate
+            conn.commit()
+            conn.close()
+            print(f"Persisted {new_leads_count} new leads to SQLite.")
+
             df.drop_duplicates(subset=['Name', 'Phone'], inplace=True)
 
             def clean_rating(rating):
@@ -223,6 +259,17 @@ async def main():
                 competitors.to_excel(writer, sheet_name='Análise de Concorrência', index=False)
 
             print(f"Master file {filename} created successfully.")
+
+            # Meta CAPI Export (CSV Format)
+            capi_df = leads_df.copy()
+            capi_df['client_event_time'] = int(time.time())
+            capi_df['event_name'] = 'Lead'
+            capi_df['currency'] = 'BRL'
+            # CAPI expected columns (partial)
+            capi_export = capi_df.rename(columns={'Email': 'email', 'Phone': 'phone', 'Name': 'external_id'})
+            capi_filename = "Meta_CAPI_Import.csv"
+            capi_export[['email', 'phone', 'external_id', 'client_event_time', 'event_name', 'currency']].to_csv(capi_filename, index=False)
+            print(f"CAPI Export {capi_filename} created.")
 
             # PDF Sales Kit Generation
             pdf_filename = "Relatorio_Oportunidades_Londrina_2026.pdf"
