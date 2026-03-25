@@ -9,6 +9,7 @@ import re
 import sys
 import sqlite3
 import time
+import hashlib
 from fpdf import FPDF
 
 # DB Initialization
@@ -91,8 +92,25 @@ async def process_query(p, browser, query, proxy, is_buyer=False):
 
         print(f"Searching for: {query}...")
         try:
-            await page.goto(f"https://www.google.com/maps/search/{query}", timeout=60000)
-            await page.wait_for_selector('div[role="feed"]', timeout=30000)
+            # Resilient Goto with Retry
+            for attempt in range(3):
+                try:
+                    await page.goto(f"https://www.google.com/maps/search/{query}", timeout=60000)
+
+                    # Detect Bot Blocks
+                    if await page.query_selector('text="Are you a robot?"') or await page.query_selector('iframe[src*="recaptcha"]'):
+                        print("CRITICAL: CAPTCHA/BOT BLOCK DETECTED!")
+                        print("Switching to 'Evasion Mode' (Random delay)...")
+                        await asyncio.sleep(random.uniform(10, 20))
+                        # For now we return empty to avoid hanging the full pipeline
+                        return []
+
+                    await page.wait_for_selector('div[role="feed"]', timeout=30000)
+                    break
+                except Exception as e:
+                    if attempt == 2: raise e
+                    print(f"Retry {attempt+1} for {query}...")
+                    await asyncio.sleep(random.uniform(2, 5))
 
             # Infinite scroll
             for _ in range(3):
@@ -104,19 +122,36 @@ async def process_query(p, browser, query, proxy, is_buyer=False):
             listings = await page.query_selector_all('div[role="article"]')
 
             for listing in listings:
-                data = {}
-                name_el = await listing.query_selector('div.fontHeadlineSmall')
-                data['Name'] = await name_el.inner_text() if name_el else "N/A"
-                rating_el = await listing.query_selector('span.MW4etd')
-                data['Rating'] = await rating_el.inner_text() if rating_el else "0.0"
-                data['Sponsored'] = "Sim" if await listing.query_selector('span:has-text("Patrocinado")') else "Não"
-                website_el = await listing.query_selector('a[data-value="Website"]')
-                data['Website'] = await website_el.get_attribute('href') if website_el else "N/A"
-                text_content = await listing.inner_text()
-                phone_match = re.search(r'(\(?\d{2}\)?\s?\d{4,5}-?\d{4})', text_content)
-                data['Phone'] = phone_match.group(0) if phone_match else "N/A"
-                results.append(data)
-                if len(results) >= 50: break # Increased limit for Londrina Invasion
+                try:
+                    data = {}
+                    # Robust Name Selection
+                    name_el = await listing.query_selector('div.fontHeadlineSmall')
+                    if not name_el: continue # Skip invalid listings
+                    data['Name'] = await name_el.inner_text()
+
+                    # Robust Rating Selection (using ARIA or specific class)
+                    rating_el = await listing.query_selector('span[aria-label*="estrelas"]')
+                    if rating_el:
+                        aria_label = await rating_el.get_attribute('aria-label')
+                        data['Rating'] = aria_label.split()[0]
+                    else:
+                        data['Rating'] = "0.0"
+
+                    data['Sponsored'] = "Sim" if await listing.query_selector('span:has-text("Patrocinado")') else "Não"
+
+                    # Robust Website Selection
+                    website_el = await listing.query_selector('a[aria-label*="website"], a[data-value="Website"]')
+                    data['Website'] = await website_el.get_attribute('href') if website_el else "N/A"
+
+                    text_content = await listing.inner_text()
+                    phone_match = re.search(r'(\(?\d{2}\)?\s?\d{4,5}-?\d{4})', text_content)
+                    data['Phone'] = phone_match.group(0) if phone_match else "N/A"
+
+                    results.append(data)
+                    if len(results) >= 50: break
+                except Exception as e:
+                    print(f"Skipping listing due to error: {e}")
+                    continue
 
             # Concurrent Enrichment
             async def enrich_item(item):
@@ -260,16 +295,26 @@ async def main():
 
             print(f"Master file {filename} created successfully.")
 
-            # Meta CAPI Export (CSV Format)
+            # Meta CAPI Export (Hashed CSV Format for high-precision matching)
+            def hash_data(data):
+                if not data or data == "N/A" or pd.isna(data): return ""
+                return hashlib.sha256(str(data).strip().lower().encode()).hexdigest()
+
             capi_df = leads_df.copy()
             capi_df['client_event_time'] = int(time.time())
             capi_df['event_name'] = 'Lead'
             capi_df['currency'] = 'BRL'
-            # CAPI expected columns (partial)
-            capi_export = capi_df.rename(columns={'Email': 'email', 'Phone': 'phone', 'Name': 'external_id'})
+
+            # Formatting and Hashing
+            capi_df['em'] = capi_df['Email'].apply(hash_data)
+            capi_df['ph'] = capi_df['Phone'].apply(hash_data)
+            capi_df['client_user_agent'] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+
+            capi_export = capi_df.rename(columns={'Name': 'external_id'})
             capi_filename = "Meta_CAPI_Import.csv"
-            capi_export[['email', 'phone', 'external_id', 'client_event_time', 'event_name', 'currency']].to_csv(capi_filename, index=False)
-            print(f"CAPI Export {capi_filename} created.")
+            capi_cols = ['em', 'ph', 'external_id', 'client_event_time', 'event_name', 'currency', 'client_user_agent']
+            capi_export[capi_cols].to_csv(capi_filename, index=False)
+            print(f"Hashed CAPI Export {capi_filename} created for Analytic Scale.")
 
             # PDF Sales Kit Generation
             pdf_filename = "Relatorio_Oportunidades_Londrina_2026.pdf"

@@ -119,4 +119,14 @@ elif menu == "Configurações":
     st.title("⚙️ Configurações do Sistema")
     st.write("Hardware Detectado: Lenovo i5 13th Gen - 16GB RAM")
     st.write("Status do Proxy: Inativo (Conexão Direta)")
-    st.write("Versão do Mirage: 6.0 Stable")
+    st.write("Versão do Mirage: 7.0 Elite (Analytic Scale)")
+
+    st.divider()
+    st.subheader("🛡️ Gestão de Dados")
+    if st.button("🗑️ LIMPAR BANCO DE DADOS (STRESS TEST)"):
+        if os.path.exists("leads.db"):
+            os.remove("leads.db")
+            st.success("Banco de dados SQLite removido!")
+        if os.path.exists("Mineracao_B2B_TURBO.xlsx"):
+            os.remove("Mineracao_B2B_TURBO.xlsx")
+            st.info("Arquivo Excel de cache removido.")
