@@ -1,8 +1,8 @@
 playwright
 playwright-stealth
-pandas
-openpyxl
 httpx
 beautifulsoup4
+pandas
+openpyxl
 fpdf2
-streamlit
+google-genai
